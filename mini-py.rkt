@@ -79,3 +79,178 @@
 ;;<oper-bin-bool>   ::= and|or
 ;;<oper-un-bool>    ::= not
 ;;<bool>            ::= true | false
+
+
+;;--------------------------------------------------------Lexico---------------------------------------------
+(define lexico
+  '(
+    (white-sp (whitespace) skip)
+    (comentario ("//" (arbno (not #\newline))) skip)
+    (identificador (letter (arbno (or letter digit))) symbol)
+    (letras (letter) string)
+    (letras (letter (arbno (or letter digit))) string)    
+    (numero (digit (arbno digit)) number)
+    (numero (digit (arbno digit) "." digit (arbno digit)) number)
+    (numero ("-" digit (arbno digit)) number)
+    (numero ("-" digit (arbno digit) "." digit (arbno digit)) number)
+    )
+  )
+
+;;--------------------------------------------------------Especificacion sintactica---------------------------------------------
+
+(define grammar-simple-interpreter
+  '(
+    ;------------ Expresiones basicas -------------
+    (programa ((arbno clase-declarada) expresion) a-programa)
+
+    ;------------ Identificadores -------------
+    (expresion (identificador) id-exp)
+
+    ;------------ Definir Variables -------------
+    (expresion ("var" (separated-list identificador "=" expresion ",") "in" expresion) var-exp)
+    (expresion ("const" (separated-list identificador "=" expresion ",") "in" expresion) const-exp)
+    (expresion ("rec" (arbno identificador "(" (separated-list identificador ",") ")" "=" expresion) "in" expresion) letrec-exp)
+
+    ;------------ Datos -------------
+    (expresion (numero) numero-lit)
+    (expresion (cadena) cadena-exp)
+    (expresion ("x8" "(" (arbno numero) ")") oct-exp)
+    (expresion ("x16" "(" (arbno numero) ")") hex-exp)
+    (expresion ("x32" "(" (arbno numero) ")") bignum-exp)
+
+    ;------------ Constructor de datos predefinidos -------------
+    (expresion ("[" (separated-list expresion ",") "]") list-exp)
+    (expresion ("tupla" "[" (separated-list expresion ";") "]") tupla-exp)
+    (expresion ("{" identificador "=" expresion (arbno "," identificador "=" expresion) "}") registro-exp)
+    (expr-bool (pred-prim "(" expresion "," expresion ")") pred-prim-exp)
+    (expr-bool (oper-bin-bool "(" expr-bool "," expr-bool ")") oper-bin-exp)
+    (expr-bool (oper-un-bool "(" expresion ")") oper-un-exp)
+    (expr-bool (bool) bool-exp)
+    (bool ("true") bool-true)
+    (bool ("false") bool-false)
+
+    ;------------ Estrucutras de control -------------
+    (expresion ("begin" expresion (arbno ";" expresion) "end") begin-exp)
+    (expresion ("if" expr-bool "then" expresion "else" expresion "end") if-exp)
+    (expresion ("while" expr-bool "do" expresion "done") while-exp)
+    (expresion ("for" identificador "=" expresion iterador expresion "do" expresion "done") for-exp)
+    (iterador ("to") iter-to)
+    (iterador ("downto") iter-down)
+
+    ;------------ Primitivas aritmeticas para enteros -------------
+    (expresion ("(" expresion primitiva-binaria expresion ")") primapp-bin-exp)
+    (expresion (primitiva-unaria "(" expresion ")") primapp-un-exp)
+
+    ;------------ Primitivas sobre cadenas -------------
+    (expresion ("longitud" "(" expresion ")") primitiva-longitud)
+    (expresion ("concat" "(" expresion "," expresion ")") primitiva-concat)
+
+    ;------------ Primitivas sobre listas -------------
+    (expresion ("vacio?" "(" expresion ")") vacio?-exp)
+    (expresion ("vacio") vacio-exp)
+    (expresion ("crear-lista" "(" expresion (arbno "," expresion) ")") crear-lista-exp)
+    (expresion ("lista?" "(" expresion ")") list?-exp)
+    (expresion ("cabeza" "(" expresion ")") cabeza-exp)
+    (expresion ("cola" "(" expresion ")") cola-exp)
+    (expresion ("append" "(" expresion "," expresion ")") append-exp)
+    (expresion ("ref-list" "(" expresion "," expresion ")") ref-list-exp)
+    (expresion ("set-list" "(" expresion "," expresion "," expresion ")") set-list-exp)
+
+    ;------------ Primitivas sobre tuplas -------------
+    (expresion ("crear-tupla" "(" expresion (arbno "," expresion) ")") crear-tupla-exp)
+    (expresion ("tupla?" "(" expresion ")") tupla?-exp)
+    (expresion ("ref-tupla" "(" expresion "," expresion ")") ref-tupla-exp)
+    (expresion ("cabeza-tupla" "(" expresion ")") cabeza-tupla-exp)
+    (expresion ("cola-tupla" "(" expresion ")") cola-tupla-exp)
+
+    ;------------ Primitivas sobre registros -------------
+    (expresion ("registro?" "(" expresion ")") registro?-exp)
+    (expresion ("crear-registro" "(" identificador "=" expresion (arbno "," identificador "=" expresion) ")") crear-registro-exp)
+    (expresion ("ref-registro" "(" expresion "," expresion ")") ref-registro-exp)
+    (expresion ("set-registro" "(" expresion "," expresion "," expresion ")") set-registro-exp)
+
+    ;------------ Invocación de procedimientos -------------
+    (expresion ("function" "(" (separated-list identificador ",") ")" "{" expresion "}") procedimiento-exp)
+    (expresion ("evaluar" "(" (separated-list expresion ",") ")") evaluar-exp)
+    (expresion ("&" identificador) referencia-exp)
+
+    ;------------ Variables actualizables -------------
+    (expresion ("set" identificador "=" expresion) set-exp)
+
+    ;------------ Primitivas -------------
+    (pred-prim (">") mayor-exp)
+    (pred-prim (">=") mayor-igual-exp)
+    (pred-prim ("<") menor-exp)
+    (pred-prim ("<=") menor-igual-exp)
+    (pred-prim ("==" ) igual-exp)
+    (pred-prim ("!=") diferente-exp)
+
+    ;------------ Operadores booleanos -------------
+    (oper-bin-bool ("and") primitiva-and)
+    (oper-bin-bool ("or") primitiva-or)
+
+    (oper-un-bool ("not") primitiva-not)
+
+    ;------------ Primitivas binarias -------------
+    (primitiva-binaria ("+") primitiva-suma)
+    (primitiva-binaria ("-") primitiva-resta)
+    (primitiva-binaria ("*") primitiva-multi)
+    (primitiva-binaria ("/") primitiva-div)
+    (primitiva-binaria ("%") primitiva-mod)
+    (primitiva-unaria ("add1") primitiva-add1)
+    (primitiva-unaria ("sub1") primitiva-sub1)
+
+    ; Octales
+    (primitiva-binaria ("+(x8)") oct-suma)
+    (primitiva-binaria ("~(x8)") oct-resta)
+    (primitiva-binaria ("*(x8)") oct-multi)
+    (primitiva-unaria ("add1(x8)") oct-add1)
+    (primitiva-unaria ("sub1(x8)") oct-sub1)
+
+    ; Hexadecimales
+    (primitiva-binaria ("+(x16)") hex-suma)
+    (primitiva-binaria ("~(x16)") hex-resta)
+    (primitiva-binaria ("*(x16)") hex-multi)
+    (primitiva-unaria ("add1(x16)") hex-add1)
+    (primitiva-unaria ("sub1(x16)") hex-sub1)
+
+    ; Base 32
+    (primitiva-binaria ("+(x32)") big-suma)
+    (primitiva-binaria ("~(x32)") big-resta)
+    (primitiva-binaria ("*(x32)") big-multi)
+    (primitiva-unaria ("add1(x32)") big-add1)
+    (primitiva-unaria ("sub1(x32)") big-sub1)
+
+    ; Imprimir
+    (expresion ("print" "(" expresion ")") print-exp)
+
+    ;------------ Producciones OOP -------------
+    (clase-declarada
+      ("class" identificador
+       "extends" identificador ":"
+       (arbno "field" identificador)
+       (arbno method-decl))
+      a-clase-declarada)
+
+    (method-decl
+      ("define" identificador
+       "(" (separated-list identificador ",") ")"
+       expresion)
+      a-method-decl)
+
+    (expresion ("mostrar") mostrar-exp)
+
+    (expresion
+      ("new" identificador "(" (separated-list expresion ",") ")")
+      new-object-exp)
+
+    (expresion
+      ("send" expresion identificador
+       "(" (separated-list expresion ",") ")")
+      method-app-exp)
+
+    (expresion
+      ("super" identificador "(" (separated-list expresion ",") ")")
+      super-call-exp)
+    ))
+
