@@ -461,6 +461,194 @@
   (lambda(x)
     (not (zero? x))))
 
+;WHILE
+(define while
+      (lambda (expr-bool body env)
+        (if (eval-expr-bool expr-bool env)
+            (begin (evaluar-expresion body env)
+                   (while expr-bool body env))
+             1)))
+
+;;eval-rands evalua los operandos y los convierte en un ambiente
+(define eval-rands
+  (lambda (rands env)
+    (map (lambda (x) (eval-rand x env)) rands)))
+(define eval-rand
+  (lambda (rand env)
+    (cases expresion rand
+      (referencia-exp (id)
+               (indirect-target
+                (let ((ref (apply-env-ref env id)))
+                  (cases target (primitive-deref ref)
+                    (const-target (expval) ref)
+                    (direct-target (expval) ref)
+                    (indirect-target (ref1) ref1)))))
+      (else
+       (direct-target (evaluar-expresion rand env))))))
+;;funcion auxiliar para listas
+(define evaluar-lista
+  (lambda (list env)
+    (if (null? list)
+        '()
+        (cons(evaluar-expresion (car list) env) (evaluar-lista (cdr list) env))
+        )
+    ))
+(define head-to-position
+  (lambda (list2 list position counter)
+    (if (eqv? position counter)
+        (reverse list2)
+        (head-to-position (cons (car list) list2) (cdr list) position (+ counter 1))))
+  )
+;funcion auxiliar para registros
+(define pos-registro
+  (lambda (lis reg counter)
+    (if (= counter (+ (length lis) 1))
+        (eopl:error 'out-of-register "No existe el registro ~s" reg)
+        (if (eqv? reg (car lis))
+            counter
+            (pos-registro (cdr lis) reg (+ counter 1))
+         )
+     )
+   )
+ )
+;Booleanos
+(define eval-expr-bool
+  (lambda (exp env)
+    (cases expr-bool exp
+      (pred-prim-exp (prim args1 args2)
+                     (apply-pred-prim prim
+                                      (evaluar-expresion args1 env)
+                                      (evaluar-expresion args2 env)))
+      (oper-bin-exp  (prim args1 args2)
+                     (apply-oper-bin-bool prim
+                                          (eval-expr-bool args1 env)
+                                          (eval-expr-bool args2 env)))
+      (oper-un-exp (prim args1)
+                   (apply-oper-un-bool prim
+                                       (eval-expr-bool args1 env)))   
+      (bool-exp (arg)
+                (cases bool arg
+                  (bool-true () #t)
+                  (bool-false () #f))))))
+;;--------------------------------------------------------Blancos y Referencias---------------------------------------------
+(define expval?
+  (lambda (x)
+    (or (number? x) (procVal? x) (string? x) (list? x) (vector? x))))
+;
+(define ref-to-direct-target?
+  (lambda (x)
+    (and (reference? x)
+         (cases reference x
+           (a-ref (pos vec)
+                  (cases target (vector-ref vec pos)
+                    (direct-target (v) #t)
+                    (const-target (v) #t)
+                    (indirect-target (v) #f)))))))
+;
+(define deref
+  (lambda (ref)
+    (cases target (primitive-deref ref)
+      (const-target (expval) expval)
+      (direct-target (expval) expval)
+      (indirect-target (ref1)
+                       (cases target (primitive-deref ref1)
+                         (const-target (expval) expval)
+                         (direct-target (expval) expval)
+                         (indirect-target (p)
+                                          (eopl:error 'deref
+                                                      "Illegal reference: ~s" ref1)))))))
+(define primitive-deref
+  (lambda (ref)
+    (cases reference ref
+      (a-ref (pos vec)
+             (vector-ref vec pos)))))
+(define setref!
+  (lambda (ref expval)
+    (let
+        ((ref (cases target (primitive-deref ref)
+                (direct-target (expval1) ref)
+                (const-target (expval1) (eopl:error "No se puede cambiar el valor de una variable CONST"))
+                (indirect-target (ref1) ref1))))
+      (primitive-setref! ref (direct-target expval)))))
+(define primitive-setref!
+  (lambda (ref val)
+    (cases reference ref
+      (a-ref (pos vec)
+             (vector-set! vec pos val)))))
+;;--------------------------------------------------------Ambientes---------------------------------------------
+;****Gramatica*******
+;<env-exp> ::= (empty-env)
+;          ::= (extend-env <list-of symbol>
+;                          <list-of scheme-value> <env-exp>)
+;Representación
+(define-datatype environment environment?
+  (empty-env-record)
+  (extended-env-record
+   (syms (list-of symbol?))
+   (vec vector?)
+   (env environment?)))
+(define scheme-value? (lambda (v) #t))
+(define empty-env  
+  (lambda ()
+    (empty-env-record)))       ;llamado al constructor de ambiente vacío 
+;función que busca un símbolo en un ambiente
+(define apply-env
+  (lambda (env sym)
+      (deref (apply-env-ref env sym))))
+(define apply-env-ref
+  (lambda (env sym)
+    (cases environment env
+      (empty-env-record ()
+                        (eopl:error 'apply-env-ref "No binding for ~s" sym))
+      (extended-env-record (syms vals env)
+                           (let ((pos (rib-find-position sym syms)))
+                             (if (number? pos)
+                                 (a-ref pos vals)
+                                 (apply-env-ref env sym)))))))
+; Ambiente inicial
+(define init-env  
+  (extended-env-record (list '@x '@y '@z '@a)
+              (list->vector
+                (list (direct-target 4)
+                      (direct-target 2)
+                      (direct-target 5)
+                      (indirect-target (a-ref 0 (list->vector (list (direct-target 4)))))))
+              (empty-env)))
+;------------------------------------------------------------------------------------------------------------------------
+;Funciones Auxiliares
+; funciones auxiliares para encontrar la posición de un símbolo
+; en la lista de símbolos de unambiente
+; funciones auxiliares para encontrar la posición de un símbolo
+; en la lista de símbolos de un ambiente
+(define rib-find-position 
+  (lambda (sym los)
+    (list-find-position sym los)))
+(define list-find-position
+  (lambda (sym los)
+    (list-index (lambda (sym1) (eqv? sym1 sym)) los)))
+(define list-index
+  (lambda (pred ls)
+    (cond
+      ((null? ls) #f)
+      ((pred (car ls)) 0)
+      (else (let ((list-index-r (list-index pred (cdr ls))))
+              (if (number? list-index-r)
+                (+ list-index-r 1)
+                #f))))))
+;;--------------------------------------------------------Procedimientos---------------------------------------------
+(define-datatype procVal procVal?
+  (cerradura
+   (lista-ID(list-of symbol?))
+   (body expresion?)
+   (amb environment?)))
+;apply-procedure: evalua el cuerpo de un procedimientos en el ambiente extendido correspondiente
+(define apply-procedure
+  (lambda (proc args)
+    (cases procVal proc
+      (cerradura (ids body env)
+               (evaluar-expresion body (extended-env-record ids (list->vector args) env))))))
+(interpretador)
+
 
 
 
