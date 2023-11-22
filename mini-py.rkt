@@ -82,23 +82,22 @@
 
 
 ;;--------------------------------------------------------Lexico---------------------------------------------
-(define lexico
-  '(
-    (white-sp (whitespace) skip)
-    (comentario ("//" (arbno (not #\newline))) skip)
-    (identificador (letter (arbno (or letter digit))) symbol)
-    (letras (letter) string)
-    (letras (letter (arbno (or letter digit))) string)    
-    (numero (digit (arbno digit)) number)
-    (numero (digit (arbno digit) "." digit (arbno digit)) number)
-    (numero ("-" digit (arbno digit)) number)
-    (numero ("-" digit (arbno digit) "." digit (arbno digit)) number)
-    )
-  )
+(define scanner-interpreter
+'(
+  (white-sp (whitespace) skip)
+  (comentario ("//" (arbno (not #\newline))) skip)
+  (identificador (letter (arbno (or letter digit))) symbol)
+  (cadena (#\" any (arbno (not #\")) #\") string)
+  (numero (digit (arbno digit)) number)
+  (numero ("-" digit (arbno digit)) number)
+  (numero (digit (arbno digit) "." digit (arbno digit)) number)
+  (numero ("-" digit (arbno digit) "." digit (arbno digit)) number)
+ )
+)
 
 ;;--------------------------------------------------------Especificacion sintactica---------------------------------------------
 
-(define grammar-simple-interpreter
+(define grammar-interpreter
   '(
     ;------------ Expresiones basicas -------------
     (programa ((arbno clase-declarada) expresion) a-programa)
@@ -254,22 +253,22 @@
       super-call-exp)
     ))
 
-;*******************************************************************************************
+;------------------------------------------------------------------------------------------------------------------------
 ;Parser, Scanner, Interfaz
 
 ;El FrontEnd (Análisis léxico (scanner) y sintáctico (parser) integrados)
 ;;letrec fact(n) = Si n entonces (n * (fact sub1(n))) sino 1 finSi in (fact 20)
 (define scan&parse
-  (sllgen:make-string-parser scanner-spec-simple-interpreter grammar-simple-interpreter))
+  (sllgen:make-string-parser scanner-interpreter grammar-interpreter))
 
 ;El Analizador Léxico (Scanner)
 (define just-scan
-  (sllgen:make-string-scanner scanner-spec-simple-interpreter grammar-simple-interpreter))
+  (sllgen:make-string-scanner scanner-interpreter grammar-interpreter))
 
-(sllgen:make-define-datatypes scanner-spec-simple-interpreter grammar-simple-interpreter)
+(sllgen:make-define-datatypes scanner-interpreter grammar-interpreter)
 
 (define list-the-datatypes
-  (lambda () (sllgen:list-define-datatypes scanner-spec-simple-interpreter grammar-simple-interpreter)))
+  (lambda () (sllgen:list-define-datatypes scanner-interpreter grammar-interpreter)))
 
 
 ;El Interpretador (FrontEnd + Evaluación + señal para lectura )
@@ -278,5 +277,158 @@
   (sllgen:make-rep-loop  "--> "
     (lambda (pgm) (eval-program  pgm)) 
     (sllgen:make-stream-parser 
-      scanner-spec-simple-interpreter
-      grammar-simple-interpreter)))
+      scanner-interpreter
+      grammar-interpreter)))
+
+;------------------------------------------------------------------------------------------------------------------------
+;El Interprete
+;eval-program: <programa> -> numero
+; función que evalúa un programa teniendo en cuenta un ambiente dado (se inicializa dentro del programa)
+(define eval-program
+  (lambda (pgm)
+    (cases programa pgm
+      (un-programa (body)
+                 (evaluar-expresion body init-env)))))
+;Definición tipos de datos referencia y blanco
+(define-datatype target target?
+  (direct-target (expval expval?))
+  (const-target (expval expval?))
+  (indirect-target (ref ref-to-direct-target?)))
+(define-datatype reference reference?
+  (a-ref (position integer?)
+         (vec vector?)))
+
+;;--------------------------------------------------------Appilar y Evaluar-expresion---------------------------------------------
+
+;eval-expression: <expression> <enviroment> -> numero | string
+; evalua la expresión en el ambiente de entrada
+(define evaluar-expresion
+  (lambda (exp env)
+    (cases expresion exp
+      ;Numero
+      (numero-lit (numero) numero)
+      ;Texto
+      (cadena-exp (cadena) (substring cadena 1 (- (string-length cadena) 1)))
+      ;Identificadores
+      (id-exp (id) (apply-env env id))    
+      (var-exp (vars rands body)
+               (let ((args (eval-rands rands env)))
+                 (evaluar-expresion body (extended-env-record vars (list->vector args) env))))
+      (const-exp (ids rands body)
+                (let ((args (map (lambda (x) (const-target (evaluar-expresion x env))) rands)))
+                   (evaluar-expresion body (extended-env-record ids (list->vector args) env))))
+      ;Referencia
+      (referencia-exp (id) (apply-env-ref env id))
+      ;Set
+      (set-exp (id exp)(begin
+                         (setref! (apply-env-ref env id)
+                                  (evaluar-expresion exp env))
+                        "Se ha actualizado la variable"))
+      ;Primitivas unarias
+      (primapp-un-exp (prim rand)
+                   (apply-primitive-un prim (evaluar-expresion rand env)))
+      ;Primitivas binarias
+      (primapp-bin-exp (rand1 prim rand2)
+                   (apply-primitive-bin prim (evaluar-expresion rand1 env) (evaluar-expresion rand2 env)))
+      ;Primitivas booleanas
+      (exp-bool (expr-bool)
+                (eval-expr-bool expr-bool env))
+      ;Begin
+      (begin-exp (exp exps)
+                 (let loop ((acc (evaluar-expresion exp env))
+                            (exps exps))
+                   (if (null? exps)
+                       acc
+                       (loop (evaluar-expresion (car exps) env)
+                             (cdr exps)))))
+      ;If
+      (if-exp (expr-bool true-exp false-exp)
+              (if (eval-expr-bool expr-bool env)
+                  (evaluar-expresion true-exp env)
+                  (evaluar-expresion false-exp env)))
+      ;While
+      (while-exp (expr-bool body)
+                 (while expr-bool body env))
+      ;Listas
+      (list-exp (list) (evaluar-lista list env))
+      (crear-lista-exp (ca co)
+                (cons (evaluar-expresion ca env) (evaluar-lista co env))
+                )
+      (vacio-exp () '())
+      (vacio?-exp (list) (eqv? (evaluar-expresion list env) '()))
+      (list?-exp (list) (list? (evaluar-expresion list env)))
+      (cabeza-exp (list) (car (evaluar-expresion list env)) )
+      (cola-exp (list) (cdr (evaluar-expresion list env)))
+      (append-exp (list1 list2)
+                 (append (evaluar-expresion list1 env) (evaluar-expresion list2 env)))
+      (ref-list-exp (l p) (list-ref (evaluar-expresion l env) (evaluar-expresion p env)))
+      (set-list-exp (l p exp)
+                    (let
+                        (
+                         (le (evaluar-expresion l env))
+                         (pe (evaluar-expresion p env))
+                         (expe (cons(evaluar-expresion exp env) '()))
+                         )
+                      (append (append (head-to-position '() le pe 0) expe) (list-tail le (+ pe 1)))
+                      ))
+      ;Registros
+      (registro-exp (id exp ids exps)
+                (list (cons id ids) (evaluar-lista (cons exp exps) env))
+                )
+      (registro?-exp (reg) ((list-of list?) (evaluar-expresion reg env)))
+      (crear-registro-exp (id exp ids exps) (list (cons id ids) (evaluar-lista (cons exp exps) env)))
+      (ref-registro-exp (lis reg)
+                        (cases expresion reg
+                          (id-exp (x)
+                                  (let (
+                                        (list (evaluar-expresion lis env))
+                                        )
+                                   (list-ref (car(cdr list)) (pos-registro (car list) x 0))                                    
+                                   )
+                                  )
+                          (else (eopl:error 'invalid-register "No es un indice de registro valido"))
+                         )
+               )
+      (set-registro-exp (lis reg exp)
+                        (cases expresion reg
+                          (id-exp (x)
+                                  (let* (
+                                        (le (evaluar-expresion lis env))
+                                        (expe (cons(evaluar-expresion exp env) '()))
+                                        (pe (pos-registro (car le) x 0))
+                                        (listval (car(cdr le)))
+                                        )
+                                     (cons (car le) (cons (append (append (head-to-position '() listval pe 0) expe) (list-tail listval (+ pe 1)))'()))
+                                   )
+                                  )
+                          (else (eopl:error 'invalid-register "No es un indice de registro valido"))
+                         )
+               )
+      ;Tuplas
+      (crear-tupla-exp (head tail)
+                       (list->vector (map (lambda (arg) (evaluar-expresion arg env)  ) (cons head tail)))
+                       )
+      (tupla?-exp (body) (vector? (evaluar-expresion body env)))
+      (ref-tupla-exp (tupla index)
+                     (vector-ref (evaluar-expresion tupla env) (evaluar-expresion index env)))
+      ;Imprimir
+      (print-exp (txt) (display (evaluar-expresion txt env)) (newline))
+
+      (else (eopl:error 'invalid-register "No es un indice de registro valido"))
+      )))
+;apply-primitive-bin: <expresion> <primitiva> <expresion> -> numero
+(define apply-primitive-bin
+  (lambda (prim args1 args2)
+    (cases primitiva-binaria prim
+      (primitiva-suma () (+ args1 args2))     
+      (primitiva-resta () (- args1 args2))
+      (primitiva-multi () (* args1 args2))
+      (primitiva-div () (/ args1 args2))
+      (primitiva-mod () (modulo args1 args2))
+      (primitiva-concat () (string-append args1 args2)))))
+       
+
+
+
+
+
