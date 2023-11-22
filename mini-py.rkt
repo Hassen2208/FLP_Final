@@ -426,7 +426,40 @@
       (primitiva-div () (/ args1 args2))
       (primitiva-mod () (modulo args1 args2))
       (primitiva-concat () (string-append args1 args2)))))
-       
+       ;aqui iria append
+    
+;apply-primitive-un: <primitiva> <expresion> -> numero
+(define apply-primitive-un
+  (lambda (prim args)
+    (cases primitiva-unaria prim
+      (primitiva-add1 () (+ args 1))
+      (primitiva-sub1 () (- args 1))
+      (primitiva-longitud () (string-length args)))))
+;apply-pred-prim: <primitiva>
+(define apply-pred-prim
+  (lambda (prim args1 args2)
+    (cases pred-prim prim
+      (menor-exp () (< args1 args2))
+      (mayor-exp () (> args1 args2))
+      (menor-igual-exp () (<= args1 args2))
+      (mayor-igual-exp () (>= args1 args2))
+      (igual-exp () (eqv? args1 args2))
+      (diferente-exp () (not (eqv? args1 args2))))))
+;apply-oper-bin-bool: <primitiva>
+(define apply-oper-bin-bool
+  (lambda (prim args1 args2)
+    (cases oper-bin-bool prim
+      (primitiva-and () (and args1 args2))
+      (primitiva-or () (or args1 args2)))))
+;apply-oper-un-bool: <primitiva>
+(define apply-oper-un-bool
+  (lambda (prim args1)
+    (cases oper-un-bool prim
+      (primitiva-not () (not args1)))))
+;; función para probar booleanos
+(define valor-verdad?
+  (lambda(x)
+    (not (zero? x))))
 
 
 
