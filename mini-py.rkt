@@ -645,8 +645,23 @@
       (cerradura (ids body env)
                (evaluar-expresion body (extended-env-record ids (list->vector args) env))))))
 
+;;-------------------------------------Ambientes---------------------------------
 
+(define-datatype environment environment?
+  (env-empty)
+  (env-extend
+    (syms (list-of symbol?))
+    (vec vector?)            
+    (env environment?))
+  )
 
+(define empty-env
+  (lambda ()
+    (env-empty)))
+
+(define extend-env
+  (lambda (syms vals env)
+    (env-extend syms (list->vector vals) env)))
 
 
 
