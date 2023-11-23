@@ -805,7 +805,125 @@
         (part->fields    (car parts))
         (build-field-env (cdr parts))))))
 
+;************************* method environments *************************
 
+;; find a method in a list of method-decls, else return #f
+
+(define lookup-method-decl 
+  (lambda (m-name m-decls)
+    (cond
+      ((null? m-decls) #f)
+      ((eqv? m-name (method-decl->method-name (car m-decls)))
+       (car m-decls))
+      (else (lookup-method-decl m-name (cdr m-decls))))))
+      
+
+;************************** class environments **************************
+
+(define the-class-env '())
+
+(define elaborate-class-decls!
+  (lambda (c-decls)
+    (set! the-class-env c-decls)))
+
+(define lookup-class
+  (lambda (name)
+    (let loop ((env the-class-env))
+      (cond
+        ((null? env)
+         (eopl:error 'lookup-class
+           "Unknown class ~s" name))
+        ((eqv? (clase-declarada->class-name (car env)) name) (car env))
+        (else (loop (cdr env)))))))
+        
+
+;************************** declarations **************************
+
+(define clase-declarada->class-name
+  (lambda (c-decl)
+    (cases clase-declarada c-decl
+      (a-clase-declarada (class-name super-name field-ids m-decls)
+        class-name))))
+
+(define clase-declarada->super-name
+  (lambda (c-decl)
+    (cases clase-declarada c-decl
+      (a-clase-declarada (class-name super-name field-ids m-decls)
+        super-name))))
+
+(define clase-declarada->field-ids
+  (lambda (c-decl)
+    (cases clase-declarada c-decl
+      (a-clase-declarada (class-name super-name field-ids m-decls)
+        field-ids))))
+
+(define clase-declarada->method-decls
+  (lambda (c-decl)
+    (cases clase-declarada c-decl
+      (a-clase-declarada (class-name super-name field-ids m-decls)
+        m-decls))))
+
+(define method-decl->method-name
+  (lambda (md)
+    (cases method-decl md
+      (a-method-decl (method-name ids body) method-name))))
+
+(define method-decl->ids
+  (lambda (md)
+    (cases method-decl md
+      (a-method-decl (method-name ids body) ids))))
+
+(define method-decl->body
+  (lambda (md)
+    (cases method-decl md
+      (a-method-decl (method-name ids body) body))))
+
+(define method-decls->method-names
+  (lambda (mds)
+    (map method-decl->method-name mds)))      
+      
+
+;************************** selectors of all sorts **************************
+
+(define part->class-name
+  (lambda (prt)
+    (cases part prt
+      (a-part (class-name fields)
+        class-name))))
+
+(define part->fields
+  (lambda (prt)
+    (cases part prt
+      (a-part (class-name fields)
+        fields))))
+
+(define part->field-ids
+  (lambda (part)
+    (clase-declarada->field-ids (part->clase-declarada part))))
+
+(define part->clase-declarada
+  (lambda (part)
+    (lookup-class (part->class-name part))))
+
+(define part->method-decls
+  (lambda (part)
+    (clase-declarada->method-decls (part->clase-declarada part))))
+
+(define part->super-name
+  (lambda (part)
+    (clase-declarada->super-name (part->clase-declarada part))))
+
+(define class-name->method-decls
+  (lambda (class-name)
+    (clase-declarada->method-decls (lookup-class class-name))))
+
+(define class-name->super-name
+  (lambda (class-name)
+    (clase-declarada->super-name (lookup-class class-name))))
+
+(define object->class-name
+  (lambda (parts)
+    (part->class-name (car parts))))
 ;;----llamado al interpretador-----
 (interpretador)
 
