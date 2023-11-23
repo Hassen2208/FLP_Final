@@ -663,6 +663,102 @@
   (lambda (syms vals env)
     (env-extend syms (list->vector vals) env)))
 
+(define apply-env-ref
+  (lambda (env sym)
+    (cases environment env
+      (env-empty ()
+        (eopl:error 'apply-env-ref "No binding for ~s" sym))
+      (env-extend (syms vals env)
+        (let ((pos (rib-find-position sym syms)))
+          (if (number? pos)
+              (a-ref pos vals)
+              (apply-env-ref env sym)))))))
+
+(define apply-env
+  (lambda (env sym)
+    (deref (apply-env-ref env sym))))
+
+(define extend-env-recursively
+  (lambda (proc-names idss bodies old-env)
+    (let ((len (length proc-names)))
+      (let ((vec (make-vector len)))
+        (let ((env (env-extend proc-names vec old-env)))
+          (for-each
+            (lambda (pos ids body)
+              (vector-set! vec pos (cerradura ids body env)))
+            (iota len) idss bodies)
+          env)))))
+
+(define rib-find-position 
+  (lambda (sym los)
+    (list-find-position sym los)))
+
+(define list-find-position
+  (lambda (sym los)
+    (list-index (lambda (sym1) (eqv? sym1 sym)) los)))
+
+(define list-index
+  (lambda (pred ls)
+    (cond
+      ((null? ls) #f)
+      ((pred (car ls)) 0)
+      (else (let ((list-index-r (list-index pred (cdr ls))))
+              (if (number? list-index-r)
+                (+ list-index-r 1)
+                #f))))))
+
+(define iota
+  (lambda (end)
+    (let loop ((next 0))
+      (if (>= next end) '()
+        (cons next (loop (+ 1 next)))))))
+
+(define difference
+  (lambda (set1 set2)
+    (cond
+      ((null? set1) '())
+      ((memv (car set1) set2)
+       (difference (cdr set1) set2))
+      (else (cons (car set1) (difference (cdr set1) set2))))))
+
+(define extend-env-refs
+  (lambda (syms vec env)
+    (env-extend syms vec env)))
+
+(define list-find-last-position
+  (lambda (sym los)
+    (let loop
+      ((los los) (curpos 0) (lastpos #f))
+      (cond
+        ((null? los) lastpos)
+        ((eqv? sym (car los))
+         (loop (cdr los) (+ curpos 1) curpos))
+        (else (loop (cdr los) (+ curpos 1) lastpos))))))
+
+
+;; evaluar
+(define aux
+   (lambda (x) x))
+
+(define-datatype part part? 
+  (a-part
+    (class-name symbol?)
+    (fields vector?)))
+
+(define new-object
+  (lambda (class-name)
+    (if (eqv? class-name 'object)
+      '()
+      (let ((c-decl (lookup-class class-name)))
+        (cons
+          (make-first-part c-decl)
+          (new-object (clase-declarada->super-name c-decl)))))))
+
+(define make-first-part
+  (lambda (c-decl)
+    (a-part
+      (clase-declarada->class-name c-decl)
+      (make-vector (length (clase-declarada->field-ids c-decl))))))
 
 
 
