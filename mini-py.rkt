@@ -760,6 +760,50 @@
       (clase-declarada->class-name c-decl)
       (make-vector (length (clase-declarada->field-ids c-decl))))))
 
+;************************** methods **************************
+
+;;; methods are represented by their declarations.  They are closed
+;;; over their fields at application time, by apply-method.
+
+(define find-method-and-apply
+  (lambda (m-name host-name self args)
+    (if (eqv? host-name 'object)
+      (eopl:error 'find-method-and-apply
+        "No method for name ~s" m-name)
+      (let ((m-decl (lookup-method-decl m-name
+                      (class-name->method-decls host-name))))
+        (if (method-decl? m-decl)
+          (apply-method m-decl host-name self args)
+          (find-method-and-apply m-name 
+            (class-name->super-name host-name)
+            self args))))))
+
+(define view-object-as
+  (lambda (parts class-name)
+    (if (eqv? (part->class-name (car parts)) class-name)
+      parts
+      (view-object-as (cdr parts) class-name))))
+
+(define apply-method
+  (lambda (m-decl host-name self args)
+    (let ((ids (method-decl->ids m-decl))
+          (body (method-decl->body m-decl))
+          (super-name (class-name->super-name host-name)))
+      (evaluar-expresion body
+        (extend-env
+          (cons '%super (cons 'self ids))
+          (cons super-name (cons self args))
+          (build-field-env 
+            (view-object-as self host-name)))))))
+
+(define build-field-env
+  (lambda (parts)
+    (if (null? parts)
+      (empty-env)
+      (extend-env-refs
+        (part->field-ids (car parts))
+        (part->fields    (car parts))
+        (build-field-env (cdr parts))))))
 
 
 ;;----llamado al interpretador-----
