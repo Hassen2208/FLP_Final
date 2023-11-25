@@ -1026,5 +1026,28 @@
 
 
 
+;; ----------- PRUEBAS -----------------
+
+; Pruebas para valores enteros
+(scan&parse "42") 
+
+; Pruebas para valores flotantes
+(scan&parse "3.14") 
+
+; Pruebas para números en base 8
+(scan&parse "x8(1 2 7)") 
+
+; Pruebas para números en base 16
+(scan&parse "x16(10 9 15)") 
+
+; Pruebas para números en base 32
+(scan&parse "x32(15 7 23)") 
+
+; Pruebas para cadenas de caracteres
+(scan&parse "\"Hola mundo\"") 
+
+; Pruebas para booleanos
+(scan&parse "true") 
+(scan&parse "false") 
 
 
