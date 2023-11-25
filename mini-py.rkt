@@ -4,7 +4,7 @@
 ;; Marcela Mazo - 1843612
 ;;Diana Carolina Micolta - 2028287
 ;;Hassen Ortiz - 
-;;Kevin -
+;;Kevin Tobar - 1841369
 ;;Repositorio: https://github.com/Hassen2208/FLP_Final.git
 
 ;;-------------------------- mini-py-------------------------------------------------------------------------
@@ -59,7 +59,7 @@
 ;;                  ::= cons | append
 ;;                  ::= concat
 ;;-----------------------privimitivas unarias-----------------------
-;;<prim-un>         ::= lenght 
+;;<prim-un>         ::= length
 ;;                  ::= add1 | sub1 | add1x8 | sub1x8| add1x16 | sub1x16| add1x32 | sub1x32
 ;;                  ::= empty? | list? | car | cdr
 ;;------------------------------------------------------------------
@@ -138,12 +138,12 @@
     (iterador ("downto") iter-down)
 
     ;------------ Primitivas aritmeticas para enteros -------------
-    (expresion ("(" expresion primitiva-binaria expresion ")") primapp-bin-exp)
+    (expresion (primitiva-binaria "(" expresion "," expresion ")") primapp-bin-exp)
     (expresion (primitiva-unaria "(" expresion ")") primapp-un-exp)
 
     ;------------ Primitivas sobre cadenas -------------
-    (expresion ("longitud" "(" expresion ")") primitiva-longitud)
-    (expresion ("concat" "(" expresion "," expresion ")") primitiva-concat)
+    (expresion ("length" "(" expresion ")") length-exp)
+    (expresion ("concat" "(" expresion "," expresion ")") concat-exp)
 
     ;------------ Primitivas sobre listas -------------
     (expresion ("vacio?" "(" expresion ")") vacio?-exp)
@@ -347,7 +347,7 @@
                    (apply-primitive-un prim (evaluar-expresion rand env)))
       
       ;Primitivas binarias
-      (primapp-bin-exp (rand1 prim rand2)
+      (primapp-bin-exp (prim rand1 rand2)
                    (apply-primitive-bin prim (evaluar-expresion rand1 env) (evaluar-expresion rand2 env)))
       
       ;Primitivas booleanas
@@ -373,8 +373,14 @@
       (while-exp (expr-bool body)
                  (while expr-bool body env))
       
-      ;for
+      ;For
       (for-exp (var value way x body ) (forfunction-verify var (evaluar-expresion value env) way (evaluar-expresion x env) body env)  )
+
+      ;Cadenas
+      (concat-exp (string1 string2)
+                  (string-append (evaluar-expresion string1 env) (evaluar-expresion string2 env)))
+      (length-exp (string)
+                  (string-length (evaluar-expresion string env)))
 
       ;Listas
       (list-exp (list) (evaluar-lista list env))
@@ -451,13 +457,14 @@
                   (evaluar-expresion letrec-body
                                    (extend-env-recursively proc-names idss bodies env)))
       
-      (evaluar-exp (rator rands)
-               (let ((proc (evaluar-expresion rator env))
-                     (args (eval-rands rands env)))
-                 (if (procval? proc)
-                     (apply-procval proc args)
-                     (eopl:error 'evaluar-expresion
-                                 "Attempt to apply non-procedure ~s" proc))))
+(evaluar-exp (expresion)
+  (let ((proc (evaluar-expresion (expresion) env))
+        (args (eval-rands (id-exp expresion) env)))
+    (if (procval? proc)
+        (apply-procval proc args)
+        (eopl:error 'evaluar-exp
+                    "Attempt to apply non-procedure ~s" proc))))
+
       
       ;Imprimir
       (print-exp (txt) (display (evaluar-expresion txt env)) (newline))
@@ -495,7 +502,6 @@
       (primitiva-multi () (* args1 args2))
       (primitiva-div () (/ args1 args2))
       (primitiva-mod () (modulo args1 args2))
-      (primitiva-concat () (string-append args1 args2))
 
       ;octales
       (oct-suma () (suma-base args1 args2 8) )
@@ -519,7 +525,6 @@
     (cases primitiva-unaria prim
       (primitiva-add1 () (+ args 1))
       (primitiva-sub1 () (- args 1))
-      (primitiva-longitud () (string-length args))
       (oct-add1 () (sucesor-base args 8) )
       (oct-sub1 () (predecesor-base args 8) )
       (hex-add1 () (sucesor-base args 16) )
@@ -695,7 +700,7 @@
 ;;--------------------------------------------------------Blancos y Referencias---------------------------------------------
 (define expval?
   (lambda (x)
-    (or (number? x) (procVal? x) (string? x) (list? x) (vector? x))))
+    (or (number? x) (procval? x) (string? x) (list? x) (vector? x))))
 ;
 (define ref-to-direct-target?
   (lambda (x)
