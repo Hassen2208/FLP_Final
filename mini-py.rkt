@@ -1105,4 +1105,43 @@
 (scan&parse "for(counter = 8 to 12) { print(counter) }")
 
 
+; Operaciones aritméticas
+(scan&parse "(5 + 3)")
+(scan&parse "(7 ~ 4)")
+(scan&parse "(2 * 8)")
+(scan&parse "(10 / 3)")
+(scan&parse "(7 % 3)")
+(scan&parse "(x8(6) +(x8) x8(9))")
+(scan&parse "(x16(20 8) +(x16) x16(5 2))")
+(scan&parse "(x32(17) +(x32) x32(6))")
+(scan&parse "(x8(5) *(x8) x8(2))")
+(scan&parse "(x16(10) *(x16) x16(5))")
+(scan&parse "(x32(18 4) *(x32) x32(12))")
+(scan&parse "(x8(2) ~(x8) x8(5))")
+(scan&parse "(x16(12) ~(x16) x16(8))")
+(scan&parse "(x32(25) ~(x32) x32(7))")
+
+; Primitivas unarias
+(scan&parse "sub1(9)")
+(scan&parse "add1(7)")
+(scan&parse "add1(x8)(x8(5))")
+(scan&parse "add1(x16)(x16(22))")
+(scan&parse "add1(x16)(x16(3 7))")
+
+; Primitivas sobre cadenas
+(scan&parse "sub1(10)")
+
+; Invocación de procedimientos
+(scan&parse "function (2, 6){(2+6)}")
+
+; Funciones booleanas
+(scan&parse "> (8,5)")
+(scan&parse "< (3,9)")
+(scan&parse "<= (4,4)")
+(scan&parse ">= (6,3)")
+(scan&parse "== (5,5)")
+(scan&parse "!= (1,1)")
+(scan&parse "or(false,true)")
+(scan&parse "and(false,false)")
+(scan&parse "not(false)")
 
