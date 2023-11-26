@@ -1050,4 +1050,20 @@
 (scan&parse "true") 
 (scan&parse "false") 
 
+;Pruebas para identificadores
+(scan&parse "abc") 
+(scan&parse "xyz") 
+
+; Referencia
+(scan&parse "&foo")
+
+; Variable
+(scan&parse "var y = 8 in sub1(y)") 
+
+; Actualización de variable
+(scan&parse "var z = 3 in begin set z = 5; z end") 
+
+; Procedimientos
+(scan&parse "function(x, y, z) {((x * y) + z)}") 
+
 
