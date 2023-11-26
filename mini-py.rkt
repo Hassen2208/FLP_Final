@@ -1145,3 +1145,134 @@
 (scan&parse "and(false,false)")
 (scan&parse "not(false)")
 
+
+; Función print
+(scan&parse "print(false)")
+
+; Ejemplos de objetos
+(scan&parse "
+clase c1 extends object:
+  field x
+  field y
+  
+  define initialize()
+    begin
+      set x = 3;
+      set y = 4
+    end
+    
+  define m1() y
+  define m2() x
+  
+  var
+    o1 = new c1()
+  in
+  
+  send o1 m2()
+")
+
+(scan&parse "
+clase c1 extends object:
+  field x
+  field y
+  
+  define initialize()
+    begin
+      set x = 5;
+      set y = 6
+    end
+    
+  define m1() y
+  define m2() x
+  
+clase c2 extends c1:
+  field x
+  field y
+  
+  define initialize()
+    begin
+      super initialize();
+      set x = 4;
+      set y = 7
+    end
+    
+  define m1() y
+  
+  var
+    o1 = new c1(),
+    o2 = new c2()
+  in
+  
+  send o2 m1()
+")
+
+(scan&parse "
+clase c1 extends object:
+  field x
+  field y
+  
+  define initialize()
+    begin
+      set x = 8;
+      set y = 9
+    end
+    
+  define m1() y
+  define m2() x
+  
+clase c2 extends c1:
+  field x
+  field y
+  
+  define initialize()
+    begin
+      super initialize();
+      set x = 3;
+      set y = 1
+    end
+    
+  define m1() y
+  
+  var
+    o1 = new c1(),
+    o2 = new c2()
+  in
+  
+  send o2 m1()
+")
+
+(scan&parse "
+clase c1 extends object:
+  field x
+  field y
+  
+  define initialize()
+    begin
+      set x = 2;
+      set y = 5
+    end
+  
+  define m1() x
+  define m2() send self m1()
+  
+clase c2 extends c1:
+  field x
+  field y
+  
+  define initialize()
+    begin
+      super initialize();
+      set x = 7;
+      set y = 8
+    end
+    
+  define m1() x
+  
+var
+  o1 = new c1(),
+  o2 = new c2()
+in
+
+send o2 m2()
+")
+
