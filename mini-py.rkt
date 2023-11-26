@@ -1066,4 +1066,43 @@
 ; Procedimientos
 (scan&parse "function(x, y, z) {((x * y) + z)}") 
 
+; ----------- Invocación de procedimientos -----
+; Por valor
+(scan&parse "var p = function(x) {add1(x)} in var y = 3 in evaluar p(y)")
+(scan&parse "var p = function(arr) {set-list(arr, 1, 42)} in var nums = [1, 2, 3] in evaluar p(nums)")
+(scan&parse "var p = function(z) {set z = 10} in var w = 5 in begin evaluar p(w); w end")
+
+; Por referencia
+(scan&parse "var p = function(a) {set a = 8} in var b = 3 in begin evaluar p(&b); b end")
+
+; Listas
+(scan&parse "crear-lista(2, 4, 6)") ; Crear lista
+(scan&parse "var lst = crear-lista(10, 20, 30) in set-list(lst, 2, 42)") ; Set list
+(scan&parse "lista? (crear-lista(5, 6, 7))") ; ¿Es lista?
+(scan&parse "cabeza (crear-lista(8, 9, 10))") ; Cabeza de la lista
+(scan&parse "cola (crear-lista(12, 14, 16))") ; Cola de la lista
+(scan&parse "append ([1, 2, 3], [4, 5, 6])") ; Append
+(scan&parse "ref-list([7, 8, 9], 1)") ; Referencia a la lista
+
+; Tupla
+(scan&parse "crear-tupla(1, 2, 3, 4, 5)")
+(scan&parse "tupla?(crear-tupla(10, 20, 30, 40, 50))")
+(scan&parse "ref-tupla(crear-tupla(6, 7, 8, 9, 10), 3)")
+(scan&parse "cabeza-tupla(crear-tupla(11, 12, 13, 14))")
+(scan&parse "cabeza-tupla(tupla[16, 17, 18, 19])")
+(scan&parse "cola-tupla(crear-tupla(21, 22, 23, 24))")
+(scan&parse "cola-tupla(tupla[26, 27, 28, 29])")
+
+; Registros
+(scan&parse "crear-registro(x = 42, y = 56)") ; Crear registro
+(scan&parse "registro?(crear-registro(a = 1, b = 2))") ; ¿Es registro?
+(scan&parse "ref-registro({a = 99, b = 88}, b)") ; Referencia a registro
+(scan&parse "set-registro({x = 33, y = 44}, x, 11)") ; Set registro
+
+; Estructuras de control
+(scan&parse "if <(4, 8) : (12+16) else : (20~24) end")
+(scan&parse "while false : print(false) done ")
+(scan&parse "for(counter = 8 to 12) { print(counter) }")
+
+
 
