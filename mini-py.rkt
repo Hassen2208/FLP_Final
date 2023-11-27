@@ -1,9 +1,9 @@
 #lang eopl 
 
 ;;Integrantes
-;; Marcela Mazo - 1843612
+;;Marcela Mazo - 1843612
 ;;Diana Carolina Micolta - 2028287
-;;Hassen Ortiz - 
+;;Hassen Ortiz - 2177273
 ;;Kevin Tobar - 1841369
 ;;Repositorio: https://github.com/Hassen2208/FLP_Final.git
 
